@@ -1,57 +1,46 @@
-from bs4 import BeautifulSoup
-from selenium import webdriver
+import requests
 import pandas as pd
 
-def create_browser(webdriver_path):
+url = "https://www.naukri.com/jobapi/v3/search"
+data = []
+final_output = pd.DataFrame(columns=['Title','Company','Skills','URL','Description','Experience','salary','Location'])
+for x in range(1,6):
 
-    #create a selenium object that mimics the browser
-    browser_options = webdriver.ChromeOptions()
-    #headless tag created an invisible browsercls
-    browser_options.add_argument("--headless")
-    browser_options.add_argument('--no-sandbox')
-    browser = webdriver.Chrome(executable_path= webdriver_path, chrome_options=browser_options)
-    print("Done Creating Browser")
+    querystring = {"noOfResults":"20","urlType":"search_by_key_loc","searchType":"adv","keyword":"data analyst","location":"bangalore/bengaluru","pageNo":f"{x}","k":"data analyst","l":"bangalore/bengaluru","seoKey":"data-analyst-jobs-in-bangalore-bengaluru","src":"jobsearchDesk","latLong":"12.9859584_77.6404992"}
+
+    headers = {    
+        'authority': "www.naukri.com",
+        'accept': "application/json",
+        'accept-language': "en-US,en;q=0.9",
+        'appid': "109",
+        'cache-control': "no-cache",
+        'clientid': "d3skt0p",
+        'content-type': "application/json",
+        'gid': "LOCATION,INDUSTRY,EDUCATION,FAREA_ROLE",
+        'referer': "https://www.naukri.com/data-analyst-jobs-in-bangalore-bengaluru?k=data%20analyst&l=bangalore%2Fbengaluru",
+        'systemid': "109",
+        'user-agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
+        }
+
+    response = requests.request("GET", url, headers=headers, params=querystring)
+
+    jobs= response.json()
     
-    return browser
-
-url = "https://www.naukri.com/python-jobs?k=python"
-browser = create_browser('F:\py practice\chromedriver.exe') #Directory of the chrome driver
-browser.get(url)
-soup = BeautifulSoup(browser.page_source,'lxml')
-print(soup.prettify())
-browser.close()
-
-df = pd.DataFrame(columns=['Title','Company','Ratings','Reviews','URL'])  #creating a dataframe to save web scraped data 
-
-results = soup.find('div',class_='list')
-jobs = results.find_all('article',class_='jobTuple bgWhite br4 mb-8')
-
-for job in jobs:
-    # URL to apply for the job 
-    URL = job.find('a',class_='title fw500 ellipsis').get('href') 
-    print (URL)
-    #Job titile 
-    Title = job.find('a',class_='title fw500 ellipsis') 
-    print (Title. text)
-    #company name
-    Company = job.find('a',class_='subTitle ellipsis fleft')
-    print (Company.text)
-    #Rating Counts
-    rating_span = job.find('span', class_='starRating fleft dot') 
-    if rating_span is None:
-        continue 
-    else:
-        Ratings = rating_span.text 
-    print(Ratings)
-        # Reviews Counts 
-    Review_span = job.find('a',class_='reviewsCount ml-5 fleft blue-text') 
-    if Review_span is None:
-        continue 
-    else:
-        Reviews = Review_span. text 
-    print(Reviews)
-    print(" "*2)
-    # Appending data to the Data Frame 
-    df=df.append({ 'URL':URL, 'Title':Title. text, 'Company': Company.text, 'Ratings': Ratings, 'Reviews':Reviews},ignore_index = True)
-    
-df.to_csv("Naukri.com_Data.csv",index=False)
+    for job in jobs["jobDetails"]:
+        job_title = job['title']
+        company_name = job['companyName']
+        skills_required = job['tagsAndSkills']
+        # others = job['placeholders']
+        job_url = job['jdURL']
+        job_description = job['jobDescription']
+        others =[]
+        for data in job["placeholders"]:
+                others.append(data["label"])
+        experience = others[0]
+        salary = others[1]
+        location = others[2]
+        final_output = final_output.append({ 'Title':job_title, 'Company': company_name, 'Skills': skills_required, 'URL':job_url, 'Description':job_description,'Experience': experience,'salary':salary,'Location':location},ignore_index=True)
+      
+final_output.head()
+final_output.to_excel("jobs_scrapped.xlsx", index=False )
+        
